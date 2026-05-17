@@ -14,21 +14,17 @@ public class RedPiece : BasePiece
     public BaseMoveModule MoveModule;
     public BaseAttackModule AttackModule;
 
-    [Header("UI表现")]
-    [Tooltip("拖入代表选中的高亮子物体（如脚底光圈）")]
-    public GameObject SelectionHighlight;
+    // 以前的 UI 槽位和 SetSelectedVisual() 全删了，清爽多了
 
     public override void StartTurn(BattleManager manager)
     {
-        // 留空，交给 PlayerInputController 接管
-    }
+        Debug.Log($"【回合开始】轮到红棋 {gameObject.name} 行动！等待玩家下达指令...");
 
-    // 控制自身高亮显隐
-    public void SetSelectedVisual(bool isSelected)
-    {
-        if (SelectionHighlight != null)
+        // 轮到自己时，直接通知管理器铺绿点
+        if (MoveModule != null)
         {
-            SelectionHighlight.SetActive(isSelected);
+            var validMoves = MoveModule.GetMovableRange(this, manager);
+            HighlightManager.Instance.ShowMoveRange(validMoves);
         }
     }
 

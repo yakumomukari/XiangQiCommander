@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4773287528637674093}
   - component: {fileID: 8601306931656087344}
   - component: {fileID: 1983332122780744777}
+  - component: {fileID: 5521035534027530892}
   m_Layer: 6
   m_Name: BlackSoldier
   m_TagString: Untagged
@@ -100,3 +101,16 @@ MonoBehaviour:
   MaxHP: 10
   CurrentHP: 10
   Speed: 100
+  MoveModule: {fileID: 5521035534027530892}
+--- !u!114 &5521035534027530892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4174190912408127112}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06b5d11a813adca4a9b6a3864930ddce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

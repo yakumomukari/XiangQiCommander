@@ -4,25 +4,27 @@ using UnityEngine.InputSystem;
 
 public class PlayerInputController : MonoBehaviour
 {
-    private RedPiece selectedRedPiece;
-
     void Update()
     {
         if (Mouse.current == null) return;
 
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        if (BattleManager.Instance.CurrentActivePiece == null ||
+            !(BattleManager.Instance.CurrentActivePiece is RedPiece activeRed))
         {
-            HandleLeftClick();
+            return;
         }
 
-        if (Mouse.current.rightButton.wasPressedThisFrame && selectedRedPiece != null)
+        // 每次轮到红棋行动，或者玩家没操作时，确保光标跟着当前活动棋子
+        // 放在 Update 里可以保证就算棋子刚刚走完，光圈也能立刻切走或者显示
+        HighlightManager.Instance.ShowSelectionCursor(activeRed.transform.position);
+
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
-            ClearSelection();
-            Debug.Log("取消选中");
+            HandleLeftClick(activeRed);
         }
     }
 
-    private void HandleLeftClick()
+    private void HandleLeftClick(RedPiece activeRed)
     {
         Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
         Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, 10f));
@@ -31,71 +33,22 @@ public class PlayerInputController : MonoBehaviour
         Vector2Int clickedGrid = BattleManager.Instance.WorldToGrid(mouseWorldPos);
         if (!BattleManager.Instance.IsValidGrid(clickedGrid.x, clickedGrid.y)) return;
 
-        BasePiece targetPiece = BattleManager.Instance.Board[clickedGrid.x, clickedGrid.y];
-
-        // 状态一：还没选中己方棋子
-        if (selectedRedPiece == null)
+        if (activeRed.MoveModule != null)
         {
-            if (targetPiece is RedPiece red)
+            List<Vector2Int> validMoves = activeRed.MoveModule.GetMovableRange(activeRed, BattleManager.Instance);
+
+            if (validMoves.Contains(clickedGrid))
             {
-                selectedRedPiece = red;
+                // 玩家下达指令后，隐藏光圈和绿点
+                HighlightManager.Instance.HideSelectionCursor();
+                HighlightManager.Instance.ClearMoveRange();
 
-                // 开启棋子本体高亮
-                selectedRedPiece.SetSelectedVisual(true);
-
-                // 计算并铺开绿点范围
-                if (selectedRedPiece.MoveModule != null)
-                {
-                    List<Vector2Int> validMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
-                    HighlightManager.Instance.ShowMoveRange(validMoves);
-                }
-
-                Debug.Log($"选中了红棋: 坐标 ({clickedGrid.x}, {clickedGrid.y})");
+                activeRed.PerformMove(BattleManager.Instance, clickedGrid.x, clickedGrid.y);
+            }
+            else
+            {
+                Debug.Log("点错地方了，这回合你只能在这颗红棋的绿点范围内行动！");
             }
         }
-        // 状态二：已经选中了，尝试移动
-        else
-        {
-            if (selectedRedPiece.MoveModule != null)
-            {
-                List<Vector2Int> validMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
-
-                if (validMoves.Contains(clickedGrid))
-                {
-                    selectedRedPiece.PerformMove(BattleManager.Instance, clickedGrid.x, clickedGrid.y);
-                    ClearSelection(); // 移动完清空状态和表现层
-                }
-                else
-                {
-                    // 如果点的是其他红棋，应该切换选中目标而不是直接取消
-                    if (targetPiece is RedPiece newRed && newRed != selectedRedPiece)
-                    {
-                        ClearSelection(); // 先清空旧的
-
-                        // 直接走一套新的选中逻辑
-                        selectedRedPiece = newRed;
-                        selectedRedPiece.SetSelectedVisual(true);
-                        List<Vector2Int> newMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
-                        HighlightManager.Instance.ShowMoveRange(newMoves);
-                    }
-                    else
-                    {
-                        Debug.Log("该位置无法到达！取消选中。");
-                        ClearSelection();
-                    }
-                }
-            }
-        }
-    }
-
-    // 统一切理选中状态（含数据清理和表现层清理）
-    private void ClearSelection()
-    {
-        if (selectedRedPiece != null)
-        {
-            selectedRedPiece.SetSelectedVisual(false); // 关掉棋子底光
-            selectedRedPiece = null;
-        }
-        HighlightManager.Instance.ClearHighlights(); // 回收全部绿点
     }
 }

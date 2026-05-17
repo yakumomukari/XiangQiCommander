@@ -21,7 +21,8 @@ public class BattleManager : MonoBehaviour
     public static BattleManager Instance { get; private set; }
     public BasePiece[,] Board { get; private set; }
     private List<BasePiece> allPieces = new List<BasePiece>();
-
+    // 在 BattleManager.cs 开头加上这个属性
+    public BasePiece CurrentActivePiece { get; private set; }
     void Awake()
     {
         Instance = this;
@@ -48,7 +49,26 @@ public class BattleManager : MonoBehaviour
     public void TickTurn()
     {
         if (allPieces.Count == 0) return;
-        allPieces.Sort((a, b) => a.CurrentAV.CompareTo(b.CurrentAV));
+
+        // 排序找最快的人
+        allPieces.Sort((a, b) =>
+    {
+        // 第一优先级：比较剩余行动值
+        int avCompare = a.CurrentAV.CompareTo(b.CurrentAV);
+        if (avCompare != 0) return avCompare;
+
+        // 第二优先级：AV相同时，基础速度快的先动 (降序)
+        int speedCompare = b.Speed.CompareTo(a.Speed);
+        if (speedCompare != 0) return speedCompare;
+
+        // 第三优先级：如果连速度都一样，红棋优先（玩家特权）
+        bool aIsRed = a is RedPiece;
+        bool bIsRed = b is RedPiece;
+        if (aIsRed && !bIsRed) return -1; // a 排前面
+        if (!aIsRed && bIsRed) return 1;  // b 排前面
+
+        return 0; // 彻底一模一样，听天由命
+    });
         BasePiece nextActor = allPieces[0];
 
         float timePassed = nextActor.CurrentAV;
@@ -56,6 +76,9 @@ public class BattleManager : MonoBehaviour
         {
             piece.CurrentAV -= timePassed;
         }
+
+        // 核心修改：设定当前活跃棋子
+        CurrentActivePiece = nextActor;
         nextActor.StartTurn(this);
     }
 

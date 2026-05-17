@@ -1,47 +1,69 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 专职处理网格范围高亮的管理类
 public class HighlightManager : MonoBehaviour
 {
     public static HighlightManager Instance { get; private set; }
 
-    [Tooltip("绿点预制体，建议使用SpriteRenderer而非UGUI")]
+    [Header("UI 预制体")]
+    [Tooltip("绿点预制体 (SpriteRenderer)")]
     public GameObject GreenDotPrefab;
+    [Tooltip("选中时的脚底光圈预制体 (SpriteRenderer)")]
+    public GameObject SelectionCursorPrefab;
 
-    // 对象池，杜绝 Instantiate/Destroy 带来的内存碎片
     private List<GameObject> dotPool = new List<GameObject>();
+    private GameObject cursorInstance; // 全局唯一的选中光标
 
     void Awake()
     {
         Instance = this;
+
+        // 初始化时直接生成一个光标，并把它藏起来
+        if (SelectionCursorPrefab != null)
+        {
+            cursorInstance = Instantiate(SelectionCursorPrefab, transform);
+            cursorInstance.SetActive(false);
+        }
     }
 
-    // 显示可移动的绿点范围
+    // --- 选中光圈控制 ---
+    public void ShowSelectionCursor(Vector3 worldPos)
+    {
+        if (cursorInstance != null)
+        {
+            cursorInstance.transform.position = worldPos;
+            cursorInstance.SetActive(true);
+        }
+    }
+
+    public void HideSelectionCursor()
+    {
+        if (cursorInstance != null)
+        {
+            cursorInstance.SetActive(false);
+        }
+    }
+
+    // --- 绿点范围控制 ---
     public void ShowMoveRange(List<Vector2Int> validMoves)
     {
-        ClearHighlights(); // 先把旧的藏起来
+        ClearMoveRange();
 
         for (int i = 0; i < validMoves.Count; i++)
         {
-            // 池子不够就扩容
             if (i >= dotPool.Count)
             {
                 GameObject newDot = Instantiate(GreenDotPrefab, transform);
                 dotPool.Add(newDot);
             }
 
-            // O(1) 取物理坐标
             Vector3 worldPos = BattleManager.Instance.GridToWorld(validMoves[i].x, validMoves[i].y);
-
-            // 部署绿点
             dotPool[i].transform.position = worldPos;
             dotPool[i].SetActive(true);
         }
     }
 
-    // 隐藏所有绿点
-    public void ClearHighlights()
+    public void ClearMoveRange()
     {
         foreach (var dot in dotPool)
         {
