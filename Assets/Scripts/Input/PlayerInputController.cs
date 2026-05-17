@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerInputController : MonoBehaviour
 {
@@ -7,21 +8,24 @@ public class PlayerInputController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Mouse.current == null) return;
+
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             HandleLeftClick();
         }
 
-        if (Input.GetMouseButtonDown(1) && selectedRedPiece != null)
+        if (Mouse.current.rightButton.wasPressedThisFrame && selectedRedPiece != null)
         {
-            selectedRedPiece = null;
+            ClearSelection();
             Debug.Log("取消选中");
         }
     }
 
     private void HandleLeftClick()
     {
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mouseScreenPos = Mouse.current.position.ReadValue();
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mouseScreenPos.x, mouseScreenPos.y, 10f));
         mouseWorldPos.z = 0f;
 
         Vector2Int clickedGrid = BattleManager.Instance.WorldToGrid(mouseWorldPos);
@@ -35,6 +39,17 @@ public class PlayerInputController : MonoBehaviour
             if (targetPiece is RedPiece red)
             {
                 selectedRedPiece = red;
+
+                // 开启棋子本体高亮
+                selectedRedPiece.SetSelectedVisual(true);
+
+                // 计算并铺开绿点范围
+                if (selectedRedPiece.MoveModule != null)
+                {
+                    List<Vector2Int> validMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
+                    HighlightManager.Instance.ShowMoveRange(validMoves);
+                }
+
                 Debug.Log($"选中了红棋: 坐标 ({clickedGrid.x}, {clickedGrid.y})");
             }
         }
@@ -43,21 +58,44 @@ public class PlayerInputController : MonoBehaviour
         {
             if (selectedRedPiece.MoveModule != null)
             {
-                // 实时获取该棋子当前能走的所有格子
                 List<Vector2Int> validMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
 
-                // O(N) 暴力比对落点是否合法
                 if (validMoves.Contains(clickedGrid))
                 {
                     selectedRedPiece.PerformMove(BattleManager.Instance, clickedGrid.x, clickedGrid.y);
-                    selectedRedPiece = null; // 移动完清空选中状态
+                    ClearSelection(); // 移动完清空状态和表现层
                 }
                 else
                 {
-                    Debug.Log("该位置无法到达！");
-                    selectedRedPiece = null; // 点错直接清空，符合常规战棋直觉
+                    // 如果点的是其他红棋，应该切换选中目标而不是直接取消
+                    if (targetPiece is RedPiece newRed && newRed != selectedRedPiece)
+                    {
+                        ClearSelection(); // 先清空旧的
+
+                        // 直接走一套新的选中逻辑
+                        selectedRedPiece = newRed;
+                        selectedRedPiece.SetSelectedVisual(true);
+                        List<Vector2Int> newMoves = selectedRedPiece.MoveModule.GetMovableRange(selectedRedPiece, BattleManager.Instance);
+                        HighlightManager.Instance.ShowMoveRange(newMoves);
+                    }
+                    else
+                    {
+                        Debug.Log("该位置无法到达！取消选中。");
+                        ClearSelection();
+                    }
                 }
             }
         }
+    }
+
+    // 统一切理选中状态（含数据清理和表现层清理）
+    private void ClearSelection()
+    {
+        if (selectedRedPiece != null)
+        {
+            selectedRedPiece.SetSelectedVisual(false); // 关掉棋子底光
+            selectedRedPiece = null;
+        }
+        HighlightManager.Instance.ClearHighlights(); // 回收全部绿点
     }
 }
