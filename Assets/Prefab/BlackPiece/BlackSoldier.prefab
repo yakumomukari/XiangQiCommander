@@ -101,6 +101,7 @@ MonoBehaviour:
   MaxHP: 10
   CurrentHP: 10
   Speed: 100
+  Icon: {fileID: -699129783, guid: acac1e6e00dcc564cafb23ea186f76a9, type: 3}
   MoveModule: {fileID: 5521035534027530892}
 --- !u!114 &5521035534027530892
 MonoBehaviour:

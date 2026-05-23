@@ -9,6 +9,9 @@ public abstract class BasePiece : MonoBehaviour
     public float CurrentAV { get; set; }
     public int GridX { get; set; }
     public int GridY { get; set; }
+    // 在 BasePiece.cs 的属性声明区加上这个
+[Header("UI表现")]
+public Sprite Icon; // 用于在行动条显示的头像
 
     public void UpdateVisualPosition()
     {

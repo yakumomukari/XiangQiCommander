@@ -100,14 +100,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   MaxHP: 1
   CurrentHP: 1
-  Speed: 120
+  Speed: 200
+  Icon: {fileID: -1017419872, guid: acac1e6e00dcc564cafb23ea186f76a9, type: 3}
   AttackPower: 5
   CurrentExp: 0
   Level: 1
   DeployCost: 1
   MoveModule: {fileID: 1325116134514536400}
   AttackModule: {fileID: 0}
-  SelectionHighlight: {fileID: 6311905901884268533, guid: 7df5a4f7fe722f94d80c1d612c509b3d, type: 3}
 --- !u!114 &1325116134514536400
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -46,38 +46,108 @@ public class BattleManager : MonoBehaviour
         Destroy(piece.gameObject);
     }
 
+    // ==================== 新增：虚拟时序推算节点 ====================
+    private struct SimulatedTimelineNode
+    {
+        public BasePiece Piece;
+        public float TempAV;
+
+        public SimulatedTimelineNode(BasePiece piece, float av)
+        {
+            Piece = piece;
+            TempAV = av;
+        }
+    }
+
+    /// <summary>
+    /// 核心预测算法：在不污染真实数据的前提下，模拟推算未来 N 个行动席位
+    /// </summary>
+    public List<BasePiece> PredictFutureTurns(int previewCount)
+    {
+        List<BasePiece> predictionList = new List<BasePiece>();
+        if (allPieces.Count == 0) return predictionList;
+
+        // 1. 拷贝一份当前所有活棋的实时真实AV，放进虚拟队列
+        List<SimulatedTimelineNode> simQueue = new List<SimulatedTimelineNode>();
+        foreach (var p in allPieces)
+        {
+            simQueue.Add(new SimulatedTimelineNode(p, p.CurrentAV));
+        }
+
+        // 2. 循环离散事件模拟，推演未来多动席位
+        for (int i = 0; i < previewCount; i++)
+        {
+            // 排序裁决逻辑必须与真实的 TickTurn 严格一致
+            simQueue.Sort((a, b) =>
+            {
+                int avCompare = a.TempAV.CompareTo(b.TempAV);
+                if (avCompare != 0) return avCompare;
+
+                int speedCompare = b.Piece.Speed.CompareTo(a.Piece.Speed);
+                if (speedCompare != 0) return speedCompare;
+
+                bool aIsRed = a.Piece is RedPiece;
+                bool bIsRed = b.Piece is RedPiece;
+                if (aIsRed && !bIsRed) return -1;
+                if (!aIsRed && bIsRed) return 1;
+
+                return 0;
+            });
+
+            // 抓出这轮虚拟推演里最快的人
+            SimulatedTimelineNode nextActor = simQueue[0];
+            predictionList.Add(nextActor.Piece);
+
+            // 模拟当前单位行动结束：在虚拟未来里，它的虚拟AV需要加上跑完一轮的消耗量
+            nextActor.TempAV += (10000f / nextActor.Piece.Speed);
+
+            // 结构体是值类型，必须写回列表生效
+            simQueue[0] = nextActor;
+        }
+
+        return predictionList;
+    }
+
+    // 修改现有的 TickTurn 函数
     public void TickTurn()
     {
         if (allPieces.Count == 0) return;
 
-        // 排序找最快的人
+        // 真实的当前回合排序，用于抓出眼前是谁该动
         allPieces.Sort((a, b) =>
-    {
-        // 第一优先级：比较剩余行动值
-        int avCompare = a.CurrentAV.CompareTo(b.CurrentAV);
-        if (avCompare != 0) return avCompare;
+        {
+            int avCompare = a.CurrentAV.CompareTo(b.CurrentAV);
+            if (avCompare != 0) return avCompare;
 
-        // 第二优先级：AV相同时，基础速度快的先动 (降序)
-        int speedCompare = b.Speed.CompareTo(a.Speed);
-        if (speedCompare != 0) return speedCompare;
+            int speedCompare = b.Speed.CompareTo(a.Speed);
+            if (speedCompare != 0) return speedCompare;
 
-        // 第三优先级：如果连速度都一样，红棋优先（玩家特权）
-        bool aIsRed = a is RedPiece;
-        bool bIsRed = b is RedPiece;
-        if (aIsRed && !bIsRed) return -1; // a 排前面
-        if (!aIsRed && bIsRed) return 1;  // b 排前面
+            bool aIsRed = a is RedPiece;
+            bool bIsRed = b is RedPiece;
+            if (aIsRed && !bIsRed) return -1;
+            if (!aIsRed && bIsRed) return 1;
 
-        return 0; // 彻底一模一样，听天由命
-    });
+            return 0;
+        });
+
+        // ==================== 修改：通知 UI 时改用虚拟预测列表 ====================
+        if (TurnOrderUI.Instance != null)
+        {
+            // 传入 6 代表侧栏会预显接下来的 6 次行动序列。如果红棋够快，这 6 个格子里能同时出现它好几次
+            List<BasePiece> futureTurns = PredictFutureTurns(6);
+            TurnOrderUI.Instance.UpdateTurnOrder(futureTurns);
+        }
+        // =========================================================================
+
         BasePiece nextActor = allPieces[0];
 
+        // 真实的时间流逝流转
         float timePassed = nextActor.CurrentAV;
         foreach (var piece in allPieces)
         {
             piece.CurrentAV -= timePassed;
         }
 
-        // 核心修改：设定当前活跃棋子
         CurrentActivePiece = nextActor;
         nextActor.StartTurn(this);
     }
